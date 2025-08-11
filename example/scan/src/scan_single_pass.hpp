@@ -480,7 +480,7 @@ public:
 template<ScanType SCAN_TYPE>
 void scan(auto& exec, auto& devAcc, auto& queue, auto const& inputVec, auto outputVec)
 {
-    using DeviceType = ALPAKA_TYPEOF(devAcc)::DeviceKind;
+    using DeviceType = ALPAKA_TYPEOF(devAcc.getDeviceKind());
 
     // Instantiate the kernel function object with the given scan type
     Scan_ScanBlocksKernel<SCAN_TYPE> scanBlocks;

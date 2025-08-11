@@ -43,7 +43,6 @@ namespace alpaka::onHost
         friend struct internal::GetNativeHandle;
 
         using element_type = typename DeviceHandle::element_type;
-        using DeviceKind = T_DeviceKind;
 
         auto get() const
         {
