@@ -193,10 +193,7 @@ public:
          * All thread blocks will be used to iterate over the frames. Each thread block will handle one or more
          * frames.
          */
-#if 0
-        for([[maybe_unused]] auto _frameIdx :
-            onAcc::makeIdxMap(acc, onAcc::worker::blocksInGrid, IdxRange{Vec<IdxType, 1u>{0}, numFrames}))
-#endif
+
         while(true)
         {
             IdxType frameIdx = 0_idx;
@@ -303,40 +300,40 @@ public:
                 flags[frameIdx] = Flag::AggregateDone;
             }
 
-            Data exclusivePrefixStrided = static_cast<Data>(0);
+            Data exclusivePrefix = static_cast<Data>(0);
 
+#if 0
             constexpr IdxType warpSize = 32;
             auto prefixReduction = onAcc::declareSharedMdArray<Data, uniqueId()>(acc, CVec<IdxType, warpSize>{});
-            if(threadIdx.x() < warpSize)
+#endif
+
+            // single lookback
+            if(threadIdx.x() == 0)
             {
-#if ALPAKA_ARCH_PTX
-                // -- GET EXCLUSIVE PREFIX (MODULO N EACH THREAD) --
+                // -- GET EXCLUSIVE PREFIX --
                 using SignedIdxType = std::make_signed_t<IdxType>;
-                bool firstRount = true;
                 for(SignedIdxType predecessorIdx = static_cast<SignedIdxType>(frameIdx) - 1 - threadIdx.x();
                     predecessorIdx >= 0;
-                    predecessorIdx -= warpSize)
+                    predecessorIdx--)
                 {
+#if ALPAKA_ARCH_PTX
                     __nanosleep(150);
+#endif
                     auto f = flags[predecessorIdx];
-                    if(firstRount)
+                    while(f == Flag::Uninitialized)
                     {
-                        while(__ballot_sync(__activemask(), (f == Flag::Uninitialized ? 1 : 0)))
-                        {
-                            __nanosleep(350);
-                            f = flags[predecessorIdx];
-                        }
-                        firstRount = false;
+#if ALPAKA_ARCH_PTX
+                        __nanosleep(350);
+#endif
+                        f = flags[predecessorIdx];
                     }
-                    exclusivePrefixStrided += metaData[predecessorIdx * 2u + (f == Flag::AggregateDone ? 0u : 1u)];
+                    exclusivePrefix += metaData[predecessorIdx * 2u + (f == Flag::AggregateDone ? 0u : 1u)];
                     if(f == Flag::PrefixDone)
                         break;
                 }
-#endif
-                prefixReduction[threadIdx] = exclusivePrefixStrided;
             }
 
-
+#if 0
             // -- BLOCK REDUCE --
             for(auto offset = warpSize / 2; offset > 0; offset /= 2)
             {
@@ -344,19 +341,20 @@ public:
                 if(threadIdx < offset)
                     prefixReduction[threadIdx] += prefixReduction[threadIdx + offset];
             }
+#endif
 
             alpaka::onAcc::syncBlockThreads(acc);
 
-            if(threadIdx.x() == warpSize - 1_idx)
+            if(threadIdx.x() == 0_idx)
             {
                 auto blockSum = tmp[conflictFreeAccess<DeviceType>(miniBlocksPerChunk - 1_idx)];
 
-                metaData[frameIdx * 2u + 1u] = exclusivePrefixStrided + blockSum;
+                metaData[frameIdx * 2u + 1u] = exclusivePrefix + blockSum;
                 memoryFence<DeviceType>();
                 flags[frameIdx] = Flag::PrefixDone;
 
                 // -- SEED DOWN-SWEEP WITH EXCLUSIVE PREFIX --
-                tmp[conflictFreeAccess<DeviceType>(miniBlocksPerChunk - 1_idx)] = prefixReduction[0];
+                tmp[conflictFreeAccess<DeviceType>(miniBlocksPerChunk - 1_idx)] = exclusivePrefix;
             }
 
             // syncBlockThreads is done first thing in the next loop
