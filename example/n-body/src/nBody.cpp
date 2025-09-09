@@ -43,7 +43,7 @@ namespace alpaka::example::nBody
 
         using IdxTypeVec = Vec<IdxType, 1u>;
 
-        std::cout << "Running accelerator: " << std::endl;
+        std::cout << "\nRunning accelerator: " << std::endl;
         std::cout << deviceSpec.getApi().getName() << std::endl;
 
         auto devSelector = makeDeviceSelector(deviceSpec);
@@ -156,7 +156,7 @@ namespace alpaka::example::nBody
     {
         std::cerr << argv[0] << " [OPTIONS]" << std::endl;
         std::cerr << "  -n numParticles: Number of particles. Default: 2^10 = 1024" << std::endl;
-        std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: 4000"
+        std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: 100"
                   << std::endl;
         std::cerr << "  -d dt: Delta t for the timesteps. Default: 0.1" << std::endl;
         std::cerr << "  -h: Print this help message" << std::endl;

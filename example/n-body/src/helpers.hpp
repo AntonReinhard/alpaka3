@@ -6,6 +6,7 @@
 
 #include <alpaka/alpaka.hpp>
 
+#include <cmath>
 #include <random>
 
 namespace alpaka::example::nBody
@@ -37,7 +38,7 @@ namespace alpaka::example::nBody
 
             BaseType const distSqr = r_x * r_x + r_y * r_y + r_z * r_z + EPS;
             BaseType const distSixth = distSqr * distSqr * distSqr;
-            BaseType const invDistCube = 1.0f / std::sqrtf(distSixth);
+            BaseType const invDistCube = 1.0f / math::sqrt(distSixth);
             BaseType const a = other.mass * invDistCube; // acceleration
 
             xVel += a * r_x;
