@@ -104,7 +104,6 @@ namespace alpaka::example::nBody
         constexpr ParticleData(ParticleData&& rhs) = default;
         constexpr ParticleData& operator=(ParticleData const& rhs) = default;
         constexpr ParticleData& operator=(ParticleData&& rhs) = default;
-        ~ParticleData() = default;
 
         constexpr Particle operator[](IdxType idx) const&
         {
