@@ -74,13 +74,14 @@ namespace alpaka::example::nBody
         auto zVelocitiesHost = onHost::allocHost<BaseType>(extents);
 
         auto particleDataHost = ParticleData{
-            massesHost,
-            xPositionsHost,
-            yPositionsHost,
-            zPositionsHost,
-            xVelocitiesHost,
-            yVelocitiesHost,
-            zVelocitiesHost};
+            massesHost.getView(),
+            xPositionsHost.getView(),
+            yPositionsHost.getView(),
+            zPositionsHost.getView(),
+            xVelocitiesHost.getView(),
+            yVelocitiesHost.getView(),
+            zVelocitiesHost.getView(),
+        };
 
         std::cout << "Initializing data on host" << std::endl;
         initMasses(massesHost);
@@ -131,24 +132,24 @@ namespace alpaka::example::nBody
         onHost::wait(dumpQueue);
         std::cout << "Data copied to device" << std::endl;
 
-        auto particleData = ParticleData(
-            massesDev,
-            xPositionsDev,
-            yPositionsDev,
-            zPositionsDev,
-            xVelocitiesDev,
-            yVelocitiesDev,
-            zVelocitiesDev);
+        auto particleData = ParticleData{
+            massesDev.getView(),
+            xPositionsDev.getView(),
+            yPositionsDev.getView(),
+            zPositionsDev.getView(),
+            xVelocitiesDev.getView(),
+            yVelocitiesDev.getView(),
+            zVelocitiesDev.getView()};
 
         // this does not have to be initialized because it will be overridden by the first simulation step anyway
-        auto particleDataDoubleBuf = ParticleData(
-            massesDevDouble,
-            xPositionsDevDouble,
-            yPositionsDevDouble,
-            zPositionsDevDouble,
-            xVelocitiesDevDouble,
-            yVelocitiesDevDouble,
-            zVelocitiesDevDouble);
+        auto particleDataDoubleBuf = ParticleData{
+            massesDevDouble.getView(),
+            xPositionsDevDouble.getView(),
+            yPositionsDevDouble.getView(),
+            zPositionsDevDouble.getView(),
+            xVelocitiesDevDouble.getView(),
+            yVelocitiesDevDouble.getView(),
+            zVelocitiesDevDouble.getView()};
 
         // Appropriate chunk size to split your problem for your Acc
         constexpr auto chunkSize = CVec<IdxType, 256u>{};
@@ -222,7 +223,7 @@ namespace alpaka::example::nBody
     {
         std::cerr << argv[0] << " [OPTIONS]" << std::endl;
         std::cerr << "  -n numParticles: Number of particles. Default: 2^9 = 512" << std::endl;
-        std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: 100"
+        std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: 1000"
                   << std::endl;
         std::cerr << "  -d dt: Delta t for the timesteps. Default: 0.001" << std::endl;
         std::cerr << "  -h: Print this help message" << std::endl;
@@ -238,7 +239,7 @@ auto main(int argc, char* argv[]) -> int
 
     // Default value if no command line argument used
     IdxType numParticles = 1 << 9;
-    IdxType numTimeSteps = 5000;
+    IdxType numTimeSteps = 1000;
 
     int opt;
     BaseType dt = 0.001;

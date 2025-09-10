@@ -65,7 +65,7 @@ namespace alpaka::example::nBody
 
         /** @brief Set the referenced particle's fields to the given particle's fields.
          */
-        RefParticle& operator=(Particle const& p)
+        constexpr RefParticle& operator=(Particle const& p)
         {
             mass = p.mass;
             xPos = p.xPos;
