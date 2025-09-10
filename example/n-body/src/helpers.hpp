@@ -19,7 +19,7 @@ namespace alpaka::example::nBody
     void initMasses(T_View& masses)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(1e6f, 1e7f);
+        std::uniform_real_distribution<BaseType> dist(MASS_MIN, MASS_MAX);
         for(auto i = 0u; i < masses.getExtents().x(); ++i)
         {
             masses[i] = dist(rd);
@@ -71,7 +71,7 @@ namespace alpaka::example::nBody
         BaseType vy = ay - dot * ry / r_norm_sq;
         BaseType vz = az - dot * rz / r_norm_sq;
 
-        return Vec{vx, vy, vz};
+        return Vec{vz, vy, vx};
     }
 
     /** @brief Initialize the given x, y, and z-velocities with random values, given the positions. The positions are
@@ -88,15 +88,15 @@ namespace alpaka::example::nBody
         T_View const& zPositions)
     {
         auto rd = std::random_device{};
-        std::normal_distribution<BaseType> dist(0.f, 700.f);
+        std::normal_distribution<BaseType> dist(VELOCITIES_MEAN, VELOCITIES_STDDEV);
 
         for(auto i = 0u; i < xVelocities.getExtents().x(); ++i)
         {
             auto const tangentialVelocity
                 = randomTangentialVelocity(rd, dist, xPositions[i], yPositions[i], zPositions[i]);
-            xVelocities[i] = tangentialVelocity[0];
-            yVelocities[i] = tangentialVelocity[1];
-            zVelocities[i] = tangentialVelocity[2];
+            xVelocities[i] = tangentialVelocity.x();
+            yVelocities[i] = tangentialVelocity.y();
+            zVelocities[i] = tangentialVelocity.z();
         }
     }
 
@@ -112,7 +112,7 @@ namespace alpaka::example::nBody
     void initColors(T_View& colors)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(0.2f, 1.0f);
+        std::uniform_real_distribution<BaseType> dist(COLOR_MIN, COLOR_MAX);
 
         for(auto i = 0u; i < colors.getExtents().x(); ++i)
         {

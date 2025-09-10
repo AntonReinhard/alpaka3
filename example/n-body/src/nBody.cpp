@@ -37,6 +37,13 @@ namespace alpaka::example::nBody
 
     /** @brief Run an n-body simulation.
      *
+     * Some number of particles are simulated in 3-dimensional space. Each particle gets a mass, position vector, and a
+     * velocity vector, initialized randomly (see common.hpp for constants to tweak the generation). The particles then
+     * interact gravitationally. The UpdateKernel updates each particle's velocity and position for one timestep and
+     * writes them back into a second buffer (double buffer). After the kernel is run, the original buffer and double
+     * buffer are shallowly swapped, and the kernel is called again, until the desired number of timesteps have been
+     * run.
+     *
      * @param deviceSpec The device specification to run on.
      * @param computeExec The device to execute on.
      * @param numParticles The number of particles to simulate.
@@ -55,8 +62,7 @@ namespace alpaka::example::nBody
 
         using IdxTypeVec = Vec<IdxType, 1u>;
 
-        std::cout << "\nRunning accelerator: " << std::endl;
-        std::cout << deviceSpec.getApi().getName() << std::endl;
+        std::cout << "\nRunning accelerator: " << deviceSpec.getApi().getName() << std::endl;
 
         auto devSelector = makeDeviceSelector(deviceSpec);
         Device devAcc = devSelector.makeDevice(0);
@@ -179,8 +185,6 @@ namespace alpaka::example::nBody
 
 
 #ifdef PNGWRITER_ENABLED
-            constexpr int PNG_STEP_SIZE = 10;
-
             if(step % PNG_STEP_SIZE == 0)
             {
                 wait(computeQueue);
