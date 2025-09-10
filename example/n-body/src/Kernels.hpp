@@ -61,6 +61,8 @@ namespace alpaka::example::nBody
                     sharedParticles[particleIdx] = constParticleData[blockStartIdx.y() + particleIdx.y()];
                 }
 
+                onAcc::syncBlockThreads(acc);
+
                 // == iterate through every x,y pair of particles in this chunk ==
                 for(concepts::Dim<2_idx> auto particleIdx :
                     onAcc::makeIdxMap(acc, onAcc::worker::threadsInBlock, IdxRange{chunkSize}))
@@ -68,6 +70,8 @@ namespace alpaka::example::nBody
                     // x is the fast moving index, so use that for the "other" particles
                     sharedParticles[Vec{particleIdx.y()}].update(otherParticles[Vec{particleIdx.x()}], dt);
                 }
+
+                onAcc::syncBlockThreads(acc);
 
                 // == save the particles' updated velocities back into global memory (along y) ==
                 for(concepts::Dim<2_idx> auto particleIdx :

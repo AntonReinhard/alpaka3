@@ -8,8 +8,6 @@
 #include "helpers.hpp"
 #include "particles.hpp"
 
-#undef PNGWRITER_ENABLED
-
 #ifdef PNGWRITER_ENABLED
 #    include "writepng.hpp"
 #endif
