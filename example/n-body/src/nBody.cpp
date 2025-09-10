@@ -8,6 +8,8 @@
 #include "helpers.hpp"
 #include "particles.hpp"
 
+#undef PNGWRITER_ENABLED
+
 #ifdef PNGWRITER_ENABLED
 #    include "writepng.hpp"
 #endif
@@ -167,10 +169,7 @@ namespace alpaka::example::nBody
                 frameSpec,
                 KernelBundle{updateVelocitiesKernel, particleData, chunkSize, dt});
 
-            computeQueue.enqueue(
-                computeExec,
-                frameSpecLinear,
-                KernelBundle{updatePositionsKernel, particleData, chunkSizeLinear, dt});
+            computeQueue.enqueue(computeExec, frameSpecLinear, KernelBundle{updatePositionsKernel, particleData, dt});
 
 
 #ifdef PNGWRITER_ENABLED

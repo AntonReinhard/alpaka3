@@ -117,7 +117,6 @@ namespace alpaka::example::nBody
         constexpr ParticleData(ParticleData&& rhs) = default;
         constexpr ParticleData& operator=(ParticleData const& rhs) = default;
         constexpr ParticleData& operator=(ParticleData&& rhs) = default;
-        ALPAKA_FN_HOST_ACC ~ParticleData() = default;
 
         constexpr auto getExtents() const&
         {
