@@ -32,9 +32,11 @@ namespace alpaka::example::nBody
     template<concepts::MdSpan<BaseType> T_View>
     void initPositions(T_View& xPositions, T_View& yPositions, T_View& zPositions)
     {
-        // most numbers should fall within the [-1500, 1500]^2 square that is plotted
+        // most numbers should fall within the square that is plotted
         auto rd = std::random_device{};
-        std::normal_distribution<BaseType> dist(0.f, 600.f);
+        std::normal_distribution<BaseType> dist(
+            (MAX_PARTICLE_POS + MIN_PARTICLE_POS) / 2.f,
+            (MAX_PARTICLE_POS - MIN_PARTICLE_POS) / 4.f);
 
         for(auto i = 0u; i < xPositions.getExtents().x(); ++i)
         {

@@ -20,12 +20,8 @@ namespace alpaka::example::nBody
         concepts::MdSpan<Color> auto const& colors,
         std::string const& filename)
     {
-        // Image dimensions
-        constexpr int width = 1000;
-        constexpr int height = 1000;
-
         // Create a black image
-        pngwriter image(width, height, 0.0, filename.c_str());
+        pngwriter image(SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, filename.c_str());
         image.setcompressionlevel(9);
 
         // Project 3D particles to 2D by ignoring z coordinate
@@ -33,12 +29,23 @@ namespace alpaka::example::nBody
         {
             auto const& p = particles[idx];
 
-            // Ignore z coordinate, initial coordinates are between -1000 and 1000
-            auto const px = (p.xPos + 1500) / 3000 * width;
-            auto const py = (p.yPos + 1500) / 3000 * height;
+            // Ignore z coordinate
+            auto const px = (p.xPos - MIN_PARTICLE_POS) / (MAX_PARTICLE_POS - MIN_PARTICLE_POS) * SCREEN_WIDTH;
+            auto const py = (p.yPos - MIN_PARTICLE_POS) / (MAX_PARTICLE_POS - MIN_PARTICLE_POS) * SCREEN_HEIGHT;
 
-            // Scale dot size inversely with distance
-            auto const size = std::max(2.f, sqrtf(p.mass / 1e6f));
+            // Scale dot size with the mass
+            auto size = sqrtf(p.mass / 1e6f);
+
+            // the camera is set at z = 2*MIN_PARTICLE_POS
+            auto zDistance = p.yPos - (2 * MIN_PARTICLE_POS);
+            if(zDistance < Z_CLIP_NEAR) // skip particles that are too close to the camera
+                continue;
+
+            // scale dot size inversely with distance to camera
+            BaseType const scaledDistance = zDistance / (MAX_PARTICLE_POS - MIN_PARTICLE_POS);
+            BaseType const factor = 1.f / scaledDistance;
+            size *= factor;
+
             int const size_ceil = ceill(size);
 
             auto const& c = colors[idx];
@@ -49,7 +56,7 @@ namespace alpaka::example::nBody
                 {
                     int const x = roundl(px + dx);
                     int const y = roundl(py + dy);
-                    if(x > 0 && x <= width && y > 0 && y <= height && sqrt(dx * dx + dy * dy) <= size)
+                    if(x > 0 && x <= SCREEN_WIDTH && y > 0 && y <= SCREEN_HEIGHT && sqrt(dx * dx + dy * dy) <= size)
                     {
                         image.plot(x, y, c.r, c.g, c.b);
                     }

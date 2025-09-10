@@ -17,4 +17,12 @@ namespace alpaka::example::nBody
     // softening factor that is added to particle distance to prevent too large forces
     constexpr BaseType EPS = 4.f;
 
+    constexpr IdxType SCREEN_WIDTH = 1000;
+    constexpr IdxType SCREEN_HEIGHT = 1000;
+
+    constexpr BaseType MIN_PARTICLE_POS = -1500.f;
+    constexpr BaseType MAX_PARTICLE_POS = 1500.f;
+
+    constexpr BaseType Z_CLIP_NEAR = 100.f;
+
 } // namespace alpaka::example::nBody
