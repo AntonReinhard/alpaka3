@@ -19,7 +19,7 @@ namespace alpaka::example::nBody
     void initMasses(T_View& masses)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(1e5f, 1e9f);
+        std::uniform_real_distribution<BaseType> dist(1e6f, 1e7f);
         for(auto i = 0u; i < masses.getExtents().x(); ++i)
         {
             masses[i] = dist(rd);
@@ -32,8 +32,9 @@ namespace alpaka::example::nBody
     template<concepts::MdSpan<BaseType> T_View>
     void initPositions(T_View& xPositions, T_View& yPositions, T_View& zPositions)
     {
+        // most numbers should fall within the [-1500, 1500]^2 square that is plotted
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(-1e3f, 1e3f);
+        std::normal_distribution<BaseType> dist(0.f, 600.f);
 
         for(auto i = 0u; i < xPositions.getExtents().x(); ++i)
         {
@@ -43,20 +44,80 @@ namespace alpaka::example::nBody
         }
     }
 
-    /** @brief Initialize the given x, y, and z-velocities with random values.
+    /** @brief Helper function to generate a tangential velocity to prevent the whole set of particles moving in a
+     * random direction.
+     */
+    Vec<BaseType, 3> randomTangentialVelocity(
+        auto& rd,
+        auto& dist,
+        BaseType const x,
+        BaseType const y,
+        BaseType const z)
+    {
+        // Random vector
+        BaseType const ax = dist(rd), ay = dist(rd), az = dist(rd);
+
+        // Position vector
+        BaseType const rx = x, ry = y, rz = z;
+        BaseType const r_norm_sq = rx * rx + ry * ry + rz * rz;
+
+        // Dot product of random vector and position vector
+        BaseType const dot = ax * rx + ay * ry + az * rz;
+
+        // Project random vector onto the tangential plane
+        BaseType vx = ax - dot * rx / r_norm_sq;
+        BaseType vy = ay - dot * ry / r_norm_sq;
+        BaseType vz = az - dot * rz / r_norm_sq;
+
+        return Vec{vx, vy, vz};
+    }
+
+    /** @brief Initialize the given x, y, and z-velocities with random values, given the positions. The positions are
+     * used to generate tangential velocities to the coordinate center.
      * @note This is a host function.
      */
     template<concepts::MdSpan<BaseType> T_View>
-    void initVelocities(T_View& xVelocities, T_View& yVelocities, T_View& zVelocities)
+    void initVelocities(
+        T_View& xVelocities,
+        T_View& yVelocities,
+        T_View& zVelocities,
+        T_View const& xPositions,
+        T_View const& yPositions,
+        T_View const& zPositions)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(-1.f, 1.f);
+        std::normal_distribution<BaseType> dist(0.f, 700.f);
 
         for(auto i = 0u; i < xVelocities.getExtents().x(); ++i)
         {
-            xVelocities[i] = dist(rd);
-            yVelocities[i] = dist(rd);
-            zVelocities[i] = dist(rd);
+            auto const tangentialVelocity
+                = randomTangentialVelocity(rd, dist, xPositions[i], yPositions[i], zPositions[i]);
+            xVelocities[i] = tangentialVelocity[0];
+            yVelocities[i] = tangentialVelocity[1];
+            zVelocities[i] = tangentialVelocity[2];
         }
     }
+
+#ifdef PNGWRITER_ENABLED
+    struct Color
+    {
+        BaseType r;
+        BaseType g;
+        BaseType b;
+    };
+
+    template<concepts::MdSpan<Color> T_View>
+    void initColors(T_View& colors)
+    {
+        auto rd = std::random_device{};
+        std::uniform_real_distribution<BaseType> dist(0.2f, 1.0f);
+
+        for(auto i = 0u; i < colors.getExtents().x(); ++i)
+        {
+            colors[i].r = dist(rd);
+            colors[i].g = dist(rd);
+            colors[i].b = dist(rd);
+        }
+    }
+#endif
 } // namespace alpaka::example::nBody

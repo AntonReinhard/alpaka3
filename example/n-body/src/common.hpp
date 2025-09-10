@@ -15,6 +15,6 @@ namespace alpaka::example::nBody
     constexpr BaseType GRAV = 6.674e-11;
 
     // softening factor that is added to particle distance to prevent too large forces
-    constexpr BaseType EPS = 1e-6;
+    constexpr BaseType EPS = 4.f;
 
 } // namespace alpaka::example::nBody

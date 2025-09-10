@@ -8,6 +8,10 @@
 #include "helpers.hpp"
 #include "particles.hpp"
 
+#ifdef PNGWRITER_ENABLED
+#    include "writepng.hpp"
+#endif
+
 #include <alpaka/alpaka.hpp>
 #include <alpaka/onHost/example/executors.hpp>
 #include <alpaka/onHost/executeForEach.hpp>
@@ -69,10 +73,31 @@ namespace alpaka::example::nBody
         auto yVelocitiesHost = onHost::allocHost<BaseType>(extents);
         auto zVelocitiesHost = onHost::allocHost<BaseType>(extents);
 
+        auto particleDataHost = ParticleData{
+            massesHost,
+            xPositionsHost,
+            yPositionsHost,
+            zPositionsHost,
+            xVelocitiesHost,
+            yVelocitiesHost,
+            zVelocitiesHost};
+
         std::cout << "Initializing data on host" << std::endl;
         initMasses(massesHost);
         initPositions(xPositionsHost, yPositionsHost, zPositionsHost);
-        initVelocities(xVelocitiesHost, yVelocitiesHost, zVelocitiesHost);
+        initVelocities(
+            xVelocitiesHost,
+            yVelocitiesHost,
+            zVelocitiesHost,
+            xPositionsHost,
+            yPositionsHost,
+            zPositionsHost);
+
+#ifdef PNGWRITER_ENABLED
+        auto colors = onHost::allocHost<Color>(extents);
+        initColors(colors);
+#endif
+
         std::cout << "Done initializing data on host" << std::endl;
 
         auto massesDev = onHost::allocLike(devAcc, massesHost);
@@ -151,6 +176,33 @@ namespace alpaka::example::nBody
                 frameSpec,
                 KernelBundle{updateKernel, particleData, particleDataDoubleBuf, dt});
 
+
+#ifdef PNGWRITER_ENABLED
+            constexpr int PNG_STEP_SIZE = 10;
+
+            if(step % PNG_STEP_SIZE == 0)
+            {
+                wait(computeQueue);
+
+                // copy data to host
+                onHost::memcpy(dumpQueue, massesHost, particleData.masses);
+                onHost::memcpy(dumpQueue, xPositionsHost, particleData.xPositions);
+                onHost::memcpy(dumpQueue, yPositionsHost, particleData.yPositions);
+                onHost::memcpy(dumpQueue, zPositionsHost, particleData.zPositions);
+                onHost::memcpy(dumpQueue, xVelocitiesHost, particleData.xVelocities);
+                onHost::memcpy(dumpQueue, yVelocitiesHost, particleData.yVelocities);
+                onHost::memcpy(dumpQueue, zVelocitiesHost, particleData.zVelocities);
+                onHost::wait(dumpQueue);
+
+                wait(dumpQueue);
+
+                std::ostringstream oss;
+                oss << std::setw(5) << std::setfill('0') << (step / PNG_STEP_SIZE);
+
+                writePng(particleDataHost, colors, "particles_" + oss.str() + ".png");
+            }
+#endif
+
             // We just swap next and curr (shallow copy)
             std::swap(particleDataDoubleBuf, particleData);
         }
@@ -169,10 +221,10 @@ namespace alpaka::example::nBody
     void help(char* argv[])
     {
         std::cerr << argv[0] << " [OPTIONS]" << std::endl;
-        std::cerr << "  -n numParticles: Number of particles. Default: 2^10 = 1024" << std::endl;
+        std::cerr << "  -n numParticles: Number of particles. Default: 2^9 = 512" << std::endl;
         std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: 100"
                   << std::endl;
-        std::cerr << "  -d dt: Delta t for the timesteps. Default: 0.1" << std::endl;
+        std::cerr << "  -d dt: Delta t for the timesteps. Default: 0.001" << std::endl;
         std::cerr << "  -h: Print this help message" << std::endl;
         std::cerr << std::endl;
     }
@@ -185,11 +237,11 @@ auto main(int argc, char* argv[]) -> int
     using namespace alpaka::example::nBody;
 
     // Default value if no command line argument used
-    IdxType numParticles = 1 << 10;
-    IdxType numTimeSteps = 100;
+    IdxType numParticles = 1 << 9;
+    IdxType numTimeSteps = 5000;
 
     int opt;
-    BaseType dt = 0.1;
+    BaseType dt = 0.001;
 
     while((opt = getopt(argc, argv, "hn:t:d:")) != -1)
     {
