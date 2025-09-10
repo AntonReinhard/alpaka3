@@ -4,6 +4,9 @@
 
 #include "UpdateKernel.hpp"
 #include "alpaka/onHost/FrameSpec.hpp"
+#include "common.hpp"
+#include "helpers.hpp"
+#include "particles.hpp"
 
 #include <alpaka/alpaka.hpp>
 #include <alpaka/onHost/example/executors.hpp>
@@ -17,10 +20,7 @@
 
 namespace alpaka::example::nBody
 {
-    using IdxType = uint32_t;
-    using Data = double;
-
-    void printExampleHeader(IdxType const numParticles, IdxType const numTimeSteps, double const dt)
+    void printExampleHeader(IdxType const numParticles, IdxType const numTimeSteps, BaseType const dt)
     {
         std::cout << "================================" << std::endl;
         std::cout << "Example n-Body simulation" << std::endl;
@@ -31,6 +31,14 @@ namespace alpaka::example::nBody
         std::cout << std::endl;
     }
 
+    /** @brief Run an n-body simulation.
+     *
+     * @param deviceSpec The device specification to run on.
+     * @param computeExec The device to execute on.
+     * @param numParticles The number of particles to simulate.
+     * @param numTimeSteps The number of time steps to run for.
+     * @param dt The delta t to use as time steps.
+     */
     int example(
         auto const deviceSpec,
         auto const computeExec,
@@ -107,7 +115,8 @@ namespace alpaka::example::nBody
             yVelocitiesDev,
             zVelocitiesDev);
 
-        auto particleDataDoubleBuf = ParticleData( // this does not have to be initialized
+        // this does not have to be initialized because it will be overridden by the first simulation step anyway
+        auto particleDataDoubleBuf = ParticleData(
             massesDevDouble,
             xPositionsDevDouble,
             yPositionsDevDouble,
@@ -123,30 +132,35 @@ namespace alpaka::example::nBody
             divCeil(extents[0], chunkSize[0]),
         };
 
+        // Make an instance of the kernel object to use later
         UpdateKernel updateKernel;
 
+        // The frame spec describes the size of blocks and the grid used on the accelerator.
         auto const frameSpec = FrameSpec{numChunks, chunkSize};
 
         auto const startTime = std::chrono::high_resolution_clock::now();
 
         // Simulate
-        for(uint32_t step = 1; step <= numTimeSteps; ++step)
+        for(IdxType step = 1; step <= numTimeSteps; ++step)
         {
-            // Compute next values
+            // Queue one step of the simulation
+            // The kernel bundle contains the kernel first, then all its arguments *except* the accelerator, which is
+            // implicitly passed by alpaka.
             computeQueue.enqueue(
                 computeExec,
                 frameSpec,
-                KernelBundle{updateKernel, particleData, particleDataDoubleBuf, extents, dt});
+                KernelBundle{updateKernel, particleData, particleDataDoubleBuf, dt});
 
-            // So we just swap next and curr (shallow copy)
+            // We just swap next and curr (shallow copy)
             std::swap(particleDataDoubleBuf, particleData);
         }
 
+        // Wait for the entire queue to be finished
         wait(computeQueue);
         auto const endTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsedTime = endTime - startTime;
 
-        std::cout << "Simulation took " << elapsedTime.count() << " seconds." << std::endl;
+        std::cout << "The simulation took " << elapsedTime.count() << " seconds." << std::endl;
         std::cout << "Time per time step: " << elapsedTime.count() / numTimeSteps * 1000 << " ms." << std::endl;
 
         return EXIT_SUCCESS;

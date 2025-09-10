@@ -4,132 +4,17 @@
 
 #pragma once
 
+#include "common.hpp"
+
 #include <alpaka/alpaka.hpp>
 
-#include <cmath>
 #include <random>
 
 namespace alpaka::example::nBody
 {
-    using BaseType = float;
-    using IdxType = uint32_t;
-
-    // gravity constant
-    constexpr BaseType GRAV = 6.674e-11;
-
-    // softening factor that is added to r to prevent too large forces
-    constexpr BaseType EPS = 1e-6;
-
-    struct Particle
-    {
-        BaseType mass;
-        BaseType xPos;
-        BaseType yPos;
-        BaseType zPos;
-        BaseType xVel;
-        BaseType yVel;
-        BaseType zVel;
-
-        constexpr void update(Particle const& other)
-        {
-            BaseType const r_x = other.xPos - xPos;
-            BaseType const r_y = other.yPos - yPos;
-            BaseType const r_z = other.zPos - zPos;
-
-            BaseType const distSqr = r_x * r_x + r_y * r_y + r_z * r_z + EPS;
-            BaseType const distSixth = distSqr * distSqr * distSqr;
-            BaseType const invDistCube = 1.0f / math::sqrt(distSixth);
-            BaseType const a = other.mass * invDistCube; // acceleration
-
-            xVel += a * r_x;
-            yVel += a * r_y;
-            zVel += a * r_z;
-        }
-    };
-
-    struct RefParticle
-    {
-        BaseType& mass;
-        BaseType& xPos;
-        BaseType& yPos;
-        BaseType& zPos;
-        BaseType& xVel;
-        BaseType& yVel;
-        BaseType& zVel;
-
-        RefParticle& operator=(Particle const& p)
-        {
-            mass = p.mass;
-            xPos = p.xPos;
-            yPos = p.yPos;
-            zPos = p.zPos;
-            xVel = p.xVel;
-            yVel = p.yVel;
-            zVel = p.zVel;
-
-            return *this;
-        }
-    };
-
-    template<concepts::MdSpan<BaseType> T_ViewType>
-    struct ParticleData
-    {
-        T_ViewType masses;
-        T_ViewType xPositions;
-        T_ViewType yPositions;
-        T_ViewType zPositions;
-        T_ViewType xVelocities;
-        T_ViewType yVelocities;
-        T_ViewType zVelocities;
-
-        constexpr ParticleData(
-            T_ViewType const& masses,
-            T_ViewType const& xPositions,
-            T_ViewType const& yPositions,
-            T_ViewType const& zPositions,
-            T_ViewType const& xVelocities,
-            T_ViewType const& yVelocities,
-            T_ViewType const& zVelocities)
-            : masses(masses)
-            , xPositions(xPositions)
-            , yPositions(yPositions)
-            , zPositions(zPositions)
-            , xVelocities(xVelocities)
-            , yVelocities(yVelocities)
-            , zVelocities(zVelocities)
-        {
-        }
-
-        constexpr ParticleData(ParticleData const& rhs) = default;
-        constexpr ParticleData(ParticleData&& rhs) = default;
-        constexpr ParticleData& operator=(ParticleData const& rhs) = default;
-        constexpr ParticleData& operator=(ParticleData&& rhs) = default;
-
-        constexpr Particle operator[](IdxType idx) const&
-        {
-            return Particle(
-                masses[idx],
-                xPositions[idx],
-                yPositions[idx],
-                zPositions[idx],
-                xVelocities[idx],
-                yVelocities[idx],
-                zVelocities[idx]);
-        }
-
-        constexpr RefParticle operator[](IdxType idx) &
-        {
-            return RefParticle(
-                masses[idx],
-                xPositions[idx],
-                yPositions[idx],
-                zPositions[idx],
-                xVelocities[idx],
-                yVelocities[idx],
-                zVelocities[idx]);
-        }
-    };
-
+    /** @brief Initialize the given 1-dimensional MdSpan with random masses.
+     * @note This is a host function.
+     */
     template<concepts::MdSpan<BaseType> T_View>
     void initMasses(T_View& masses)
     {
@@ -141,6 +26,9 @@ namespace alpaka::example::nBody
         }
     }
 
+    /** @brief Initialize the given x, y, and z-positions with random values.
+     * @note This is a host function.
+     */
     template<concepts::MdSpan<BaseType> T_View>
     void initPositions(T_View& xPositions, T_View& yPositions, T_View& zPositions)
     {
@@ -155,6 +43,9 @@ namespace alpaka::example::nBody
         }
     }
 
+    /** @brief Initialize the given x, y, and z-velocities with random values.
+     * @note This is a host function.
+     */
     template<concepts::MdSpan<BaseType> T_View>
     void initVelocities(T_View& xVelocities, T_View& yVelocities, T_View& zVelocities)
     {
@@ -169,9 +60,3 @@ namespace alpaka::example::nBody
         }
     }
 } // namespace alpaka::example::nBody
-
-template<alpaka::concepts::MdSpan<alpaka::example::nBody::BaseType> T_ViewType>
-struct alpaka::trait::IsKernelArgumentTriviallyCopyable<alpaka::example::nBody::ParticleData<T_ViewType>>
-    : std::true_type
-{
-};
