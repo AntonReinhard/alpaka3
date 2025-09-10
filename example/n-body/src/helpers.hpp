@@ -19,7 +19,7 @@ namespace alpaka::example::nBody
     void initMasses(T_View& masses)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(MASS_MIN, MASS_MAX);
+        std::uniform_real_distribution<BaseType> dist(massMin, massMax);
         for(auto i = 0u; i < masses.getExtents().x(); ++i)
         {
             masses[i] = dist(rd);
@@ -35,8 +35,8 @@ namespace alpaka::example::nBody
         // most numbers should fall within the square that is plotted
         auto rd = std::random_device{};
         std::normal_distribution<BaseType> dist(
-            (MAX_PARTICLE_POS + MIN_PARTICLE_POS) / 2.f,
-            (MAX_PARTICLE_POS - MIN_PARTICLE_POS) / 4.f);
+            (maxParticlePos + minParticlePos) / 2.f,
+            (maxParticlePos - minParticlePos) / 4.f);
 
         for(auto i = 0u; i < xPositions.getExtents().x(); ++i)
         {
@@ -88,7 +88,7 @@ namespace alpaka::example::nBody
         T_View const& zPositions)
     {
         auto rd = std::random_device{};
-        std::normal_distribution<BaseType> dist(VELOCITIES_MEAN, VELOCITIES_STDDEV);
+        std::normal_distribution<BaseType> dist(velocitiesMean, velocitiesStdDev);
 
         for(auto i = 0u; i < xVelocities.getExtents().x(); ++i)
         {
@@ -112,7 +112,7 @@ namespace alpaka::example::nBody
     void initColors(T_View& colors)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(COLOR_MIN, COLOR_MAX);
+        std::uniform_real_distribution<BaseType> dist(colorMin, colorMax);
 
         for(auto i = 0u; i < colors.getExtents().x(); ++i)
         {

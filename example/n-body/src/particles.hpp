@@ -39,15 +39,6 @@ namespace alpaka::example::nBody
             yVel += a * r_y * dt;
             zVel += a * r_z * dt;
         }
-
-        /** @brief Move the particle according to its current velocity and the given delta t.
-         */
-        constexpr void move(BaseType const dt)
-        {
-            xPos += xVel * dt;
-            yPos += yVel * dt;
-            zPos += zVel * dt;
-        }
     };
 
     /** @brief A particle struct holding references of the particle fields (mass, positions, velocities). Used to set
@@ -76,6 +67,15 @@ namespace alpaka::example::nBody
             zVel = p.zVel;
 
             return *this;
+        }
+
+        /** @brief Move the particle according to its current velocity and the given delta t.
+         */
+        constexpr void move(BaseType const dt)
+        {
+            xPos += xVel * dt;
+            yPos += yVel * dt;
+            zPos += zVel * dt;
         }
     };
 

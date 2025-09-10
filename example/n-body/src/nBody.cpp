@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: ISC
  */
 
-#include "UpdateKernel.hpp"
+#include "Kernels.hpp"
 #include "alpaka/onHost/FrameSpec.hpp"
 #include "common.hpp"
 #include "helpers.hpp"
@@ -39,10 +39,10 @@ namespace alpaka::example::nBody
      *
      * Some number of particles are simulated in 3-dimensional space. Each particle gets a mass, position vector, and a
      * velocity vector, initialized randomly (see common.hpp for constants to tweak the generation). The particles then
-     * interact gravitationally. The UpdateKernel updates each particle's velocity and position for one timestep and
-     * writes them back into a second buffer (double buffer). After the kernel is run, the original buffer and double
-     * buffer are shallowly swapped, and the kernel is called again, until the desired number of timesteps have been
-     * run.
+     * interact gravitationally. The UpdateVelocitiesKernel updates each particle's velocity for one timestep and
+     * writes them back. The updated velocities only depend on the other particles' positions and masses, so there is
+     * no data race. Next, the UpdatePositionsKernel moves each particle independently according to its current
+     * velocity. This repeats for the desired number of time steps.
      *
      * @param deviceSpec The device specification to run on.
      * @param computeExec The device to execute on.
@@ -60,7 +60,7 @@ namespace alpaka::example::nBody
         using namespace alpaka;
         using namespace alpaka::onHost;
 
-        using IdxTypeVec = Vec<IdxType, 1u>;
+        using IdxTypeVec = Vec<IdxType, 1_idx>;
 
         std::cout << "\nRunning accelerator: " << deviceSpec.getApi().getName() << std::endl;
 
@@ -115,14 +115,6 @@ namespace alpaka::example::nBody
         auto yVelocitiesDev = onHost::allocLike(devAcc, yVelocitiesHost);
         auto zVelocitiesDev = onHost::allocLike(devAcc, zVelocitiesHost);
 
-        auto massesDevDouble = onHost::allocLike(devAcc, massesHost);
-        auto xPositionsDevDouble = onHost::allocLike(devAcc, xPositionsHost);
-        auto yPositionsDevDouble = onHost::allocLike(devAcc, yPositionsHost);
-        auto zPositionsDevDouble = onHost::allocLike(devAcc, zPositionsHost);
-        auto xVelocitiesDevDouble = onHost::allocLike(devAcc, xVelocitiesHost);
-        auto yVelocitiesDevDouble = onHost::allocLike(devAcc, yVelocitiesHost);
-        auto zVelocitiesDevDouble = onHost::allocLike(devAcc, zVelocitiesHost);
-
         // Select queue
         Queue dumpQueue = devAcc.makeQueue();
         Queue computeQueue = devAcc.makeQueue();
@@ -147,28 +139,20 @@ namespace alpaka::example::nBody
             yVelocitiesDev.getView(),
             zVelocitiesDev.getView()};
 
-        // this does not have to be initialized because it will be overridden by the first simulation step anyway
-        auto particleDataDoubleBuf = ParticleData{
-            massesDevDouble.getView(),
-            xPositionsDevDouble.getView(),
-            yPositionsDevDouble.getView(),
-            zPositionsDevDouble.getView(),
-            xVelocitiesDevDouble.getView(),
-            yVelocitiesDevDouble.getView(),
-            zVelocitiesDevDouble.getView()};
-
         // Appropriate chunk size to split your problem for your Acc
-        constexpr auto chunkSize = CVec<IdxType, 256u>{};
+        constexpr auto chunkSize = CVec<IdxType, 16_idx, 16_idx>{};
+        constexpr auto chunkSizeLinear = CVec<IdxType, 256_idx>{};
 
-        IdxTypeVec const numChunks{
-            divCeil(extents[0], chunkSize[0]),
-        };
+        auto const numChunks = divCeil(Vec{extents.x(), extents.x()}, chunkSize);
+        auto const numChunksLinear = divCeil(Vec{extents.product()}, Vec{chunkSize.product()});
 
         // Make an instance of the kernel object to use later
-        UpdateKernel updateKernel;
+        UpdateVelocitiesKernel updateVelocitiesKernel;
+        UpdatePositionsKernel updatePositionsKernel;
 
         // The frame spec describes the size of blocks and the grid used on the accelerator.
         auto const frameSpec = FrameSpec{numChunks, chunkSize};
+        auto const frameSpecLinear = FrameSpec{numChunksLinear, chunkSizeLinear};
 
         auto const startTime = std::chrono::high_resolution_clock::now();
 
@@ -181,11 +165,16 @@ namespace alpaka::example::nBody
             computeQueue.enqueue(
                 computeExec,
                 frameSpec,
-                KernelBundle{updateKernel, particleData, particleDataDoubleBuf, dt});
+                KernelBundle{updateVelocitiesKernel, particleData, chunkSize, dt});
+
+            computeQueue.enqueue(
+                computeExec,
+                frameSpecLinear,
+                KernelBundle{updatePositionsKernel, particleData, chunkSizeLinear, dt});
 
 
 #ifdef PNGWRITER_ENABLED
-            if(step % PNG_STEP_SIZE == 0)
+            if(step % pngStepSize == 0)
             {
                 wait(computeQueue);
 
@@ -202,14 +191,11 @@ namespace alpaka::example::nBody
                 wait(dumpQueue);
 
                 std::ostringstream oss;
-                oss << std::setw(5) << std::setfill('0') << (step / PNG_STEP_SIZE);
+                oss << std::setw(5) << std::setfill('0') << (step / pngStepSize);
 
                 writePng(particleDataHost, colors, "particles_" + oss.str() + ".png");
             }
 #endif
-
-            // We just swap next and curr (shallow copy)
-            std::swap(particleDataDoubleBuf, particleData);
         }
 
         // Wait for the entire queue to be finished
@@ -243,7 +229,7 @@ auto main(int argc, char* argv[]) -> int
 
     // Default value if no command line argument used
     IdxType numParticles = 1 << 9;
-    IdxType numTimeSteps = 1000;
+    IdxType numTimeSteps = 1000_idx;
 
     int opt;
     BaseType dt = 0.001;

@@ -21,7 +21,7 @@ namespace alpaka::example::nBody
         std::string const& filename)
     {
         // Create a black image
-        pngwriter image(SCREEN_WIDTH, SCREEN_HEIGHT, 0.0, filename.c_str());
+        pngwriter image(screenWidth, screenHeight, 0.0, filename.c_str());
         image.setcompressionlevel(9);
 
         // Project 3D particles to 2D by ignoring z coordinate
@@ -30,19 +30,19 @@ namespace alpaka::example::nBody
             auto const& p = particles[idx];
 
             // Ignore z coordinate
-            auto const px = (p.xPos - MIN_PARTICLE_POS) / (MAX_PARTICLE_POS - MIN_PARTICLE_POS) * SCREEN_WIDTH;
-            auto const py = (p.yPos - MIN_PARTICLE_POS) / (MAX_PARTICLE_POS - MIN_PARTICLE_POS) * SCREEN_HEIGHT;
+            auto const px = (p.xPos - minParticlePos) / (maxParticlePos - minParticlePos) * screenWidth;
+            auto const py = (p.yPos - minParticlePos) / (maxParticlePos - minParticlePos) * screenHeight;
 
             // Scale dot size with the mass
             auto size = sqrtf(p.mass / 1e6f);
 
             // the camera is set at z = 2*MIN_PARTICLE_POS
-            auto zDistance = p.yPos - (2 * MIN_PARTICLE_POS);
-            if(zDistance < Z_CLIP_NEAR) // skip particles that are too close to the camera
+            auto zDistance = p.yPos - (2 * minParticlePos);
+            if(zDistance < zClipNear) // skip particles that are too close to the camera
                 continue;
 
             // scale dot size inversely with distance to camera
-            BaseType const scaledDistance = zDistance / (MAX_PARTICLE_POS - MIN_PARTICLE_POS);
+            BaseType const scaledDistance = zDistance / (maxParticlePos - minParticlePos);
             BaseType const factor = 1.f / scaledDistance;
             size *= factor;
 
@@ -56,7 +56,7 @@ namespace alpaka::example::nBody
                 {
                     int const x = roundl(px + dx);
                     int const y = roundl(py + dy);
-                    if(x > 0 && x <= SCREEN_WIDTH && y > 0 && y <= SCREEN_HEIGHT && sqrt(dx * dx + dy * dy) <= size)
+                    if(x > 0 && x <= screenWidth && y > 0 && y <= screenHeight && sqrt(dx * dx + dy * dy) <= size)
                     {
                         image.plot(x, y, c.r, c.g, c.b);
                     }
