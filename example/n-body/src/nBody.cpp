@@ -209,10 +209,10 @@ namespace alpaka::example::nBody
     void help(char* argv[])
     {
         std::cerr << argv[0] << " [OPTIONS]" << std::endl;
-        std::cerr << "  -n numParticles: Number of particles. Default: 2^9 = 512" << std::endl;
-        std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: 1000"
-                  << std::endl;
-        std::cerr << "  -d dt: Delta t for the timesteps. Default: 0.001" << std::endl;
+        std::cerr << "  -n numParticles: Number of particles. Default: " << defaultNumParticles << std::endl;
+        std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: "
+                  << defaultTimeSteps << std::endl;
+        std::cerr << "  -d dt: Delta t for the timesteps. Default: " << defaultTimeSteps << std::endl;
         std::cerr << "  -h: Print this help message" << std::endl;
         std::cerr << std::endl;
     }
@@ -225,11 +225,11 @@ auto main(int argc, char* argv[]) -> int
     using namespace alpaka::example::nBody;
 
     // Default value if no command line argument used
-    IdxType numParticles = 1 << 9;
-    IdxType numTimeSteps = 1000_idx;
+    IdxType numParticles = defaultNumParticles;
+    IdxType numTimeSteps = defaultTimeSteps;
+    BaseType dt = defaultDt;
 
     int opt;
-    BaseType dt = 0.001;
 
     while((opt = getopt(argc, argv, "hn:t:d:")) != -1)
     {

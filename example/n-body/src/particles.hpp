@@ -21,62 +21,6 @@ namespace alpaka::example::nBody
         BaseType xVel;
         BaseType yVel;
         BaseType zVel;
-
-        /** @brief Update the particle's velocities by interacting it with the given other particle.
-         */
-        constexpr void update(Particle const& other, BaseType const dt)
-        {
-            BaseType const r_x = other.xPos - xPos;
-            BaseType const r_y = other.yPos - yPos;
-            BaseType const r_z = other.zPos - zPos;
-
-            BaseType const distSqr = r_x * r_x + r_y * r_y + r_z * r_z + EPS;
-            BaseType const distSixth = distSqr * distSqr * distSqr;
-            BaseType const invDistCube = 1.0f / math::sqrt(distSixth);
-            BaseType const a = other.mass * invDistCube; // acceleration
-
-            xVel += a * r_x * dt;
-            yVel += a * r_y * dt;
-            zVel += a * r_z * dt;
-        }
-    };
-
-    /** @brief A particle struct holding references of the particle fields (mass, positions, velocities). Used to set
-     * particle values in ParticleData without copying all fields first.
-     */
-    struct RefParticle
-    {
-        BaseType& mass;
-        BaseType& xPos;
-        BaseType& yPos;
-        BaseType& zPos;
-        BaseType& xVel;
-        BaseType& yVel;
-        BaseType& zVel;
-
-        /** @brief Set the referenced particle's fields to the given particle's fields.
-         */
-        constexpr RefParticle& operator=(Particle const& p)
-        {
-            mass = p.mass;
-            xPos = p.xPos;
-            yPos = p.yPos;
-            zPos = p.zPos;
-            xVel = p.xVel;
-            yVel = p.yVel;
-            zVel = p.zVel;
-
-            return *this;
-        }
-
-        /** @brief Move the particle according to its current velocity and the given delta t.
-         */
-        constexpr void move(BaseType const dt)
-        {
-            xPos += xVel * dt;
-            yPos += yVel * dt;
-            zPos += zVel * dt;
-        }
     };
 
     /** @brief A struct of arrays holding masses, 3-dimensional positions, and 3-dimensional velocities of a number of
@@ -128,20 +72,6 @@ namespace alpaka::example::nBody
         constexpr Particle operator[](IdxType idx) const&
         {
             return Particle(
-                masses[idx],
-                xPositions[idx],
-                yPositions[idx],
-                zPositions[idx],
-                xVelocities[idx],
-                yVelocities[idx],
-                zVelocities[idx]);
-        }
-
-        /** @brief Ref access operator, returning a RefParticle without copying.
-         */
-        constexpr RefParticle operator[](IdxType idx) &
-        {
-            return RefParticle(
                 masses[idx],
                 xPositions[idx],
                 yPositions[idx],

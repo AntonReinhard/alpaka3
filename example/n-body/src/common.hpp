@@ -11,6 +11,11 @@ namespace alpaka::example::nBody
     using BaseType = float;
     using IdxType = std::uint32_t;
 
+    // default values for a run
+    constexpr IdxType defaultTimeSteps = 1000;
+    constexpr IdxType defaultNumParticles = 512;
+    constexpr BaseType defaultDt = 0.001;
+
     // gravity constant
     constexpr BaseType GRAV = 6.674e-11;
 
