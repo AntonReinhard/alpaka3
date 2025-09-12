@@ -141,19 +141,16 @@ namespace alpaka::example::nBody
             zVelocitiesDev.getView()};
 
         // Appropriate chunk size to split your problem for your Acc
-        constexpr auto chunkSize = CVec<IdxType, 16_idx, 16_idx>{};
-        constexpr auto chunkSizeLinear = CVec<IdxType, 256_idx>{};
+        constexpr auto chunkSize = CVec<IdxType, 256_idx>{};
 
-        auto const numChunks = divCeil(Vec{extents.x(), extents.x()}, chunkSize);
-        auto const numChunksLinear = divCeil(Vec{extents.product()}, Vec{chunkSize.product()});
+        auto const numChunks = divCeil(Vec{extents.x()}, chunkSize);
+
+        // The frame spec describes the size of blocks and the grid used on the accelerator.
+        auto const frameSpec = FrameSpec{numChunks, chunkSize};
 
         // Make an instance of the kernel object to use later
         UpdateVelocitiesKernel updateVelocitiesKernel;
         UpdatePositionsKernel updatePositionsKernel;
-
-        // The frame spec describes the size of blocks and the grid used on the accelerator.
-        auto const frameSpec = FrameSpec{numChunks, chunkSize};
-        auto const frameSpecLinear = FrameSpec{numChunksLinear, chunkSizeLinear};
 
         auto const startTime = std::chrono::high_resolution_clock::now();
 
@@ -168,7 +165,7 @@ namespace alpaka::example::nBody
                 frameSpec,
                 KernelBundle{updateVelocitiesKernel, particleData, chunkSize, dt});
 
-            computeQueue.enqueue(computeExec, frameSpecLinear, KernelBundle{updatePositionsKernel, particleData, dt});
+            computeQueue.enqueue(computeExec, frameSpec, KernelBundle{updatePositionsKernel, particleData, dt});
 
 
 #ifdef PNGWRITER_ENABLED
