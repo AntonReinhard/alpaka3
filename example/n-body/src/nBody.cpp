@@ -25,13 +25,21 @@
 
 namespace alpaka::example::nBody
 {
-    void printExampleHeader(IdxType const numParticles, IdxType const numTimeSteps, BaseType const dt)
+    void printExampleHeader(
+        bool const writePngs,
+        IdxType const numParticles,
+        IdxType const numTimeSteps,
+        BaseType const dt)
     {
         std::cout << "================================" << std::endl;
         std::cout << "Example n-Body simulation" << std::endl;
         std::cout << "    Number of particles [#]: " << numParticles << std::endl;
         std::cout << "    Time steps [#]: " << numTimeSteps << std::endl;
         std::cout << "    dt: " << dt << std::endl;
+        if(writePngs)
+            std::cout << "    Writing pngs to disk" << std::endl;
+        else
+            std::cout << "    Not writing pngs to disk" << std::endl;
         std::cout << "================================" << std::endl;
         std::cout << std::endl;
     }
@@ -47,6 +55,7 @@ namespace alpaka::example::nBody
      *
      * @param deviceSpec The device specification to run on.
      * @param computeExec The device to execute on.
+     * @param writePngs Whether to write pngs to disk or not.
      * @param numParticles The number of particles to simulate.
      * @param numTimeSteps The number of time steps to run for.
      * @param dt The delta t to use as time steps.
@@ -54,6 +63,7 @@ namespace alpaka::example::nBody
     int example(
         auto const deviceSpec,
         auto const computeExec,
+        bool const writePngs,
         IdxType const numParticles,
         IdxType const numTimeSteps,
         BaseType const dt)
@@ -103,7 +113,12 @@ namespace alpaka::example::nBody
 
 #ifdef PNGWRITER_ENABLED
         auto colors = onHost::allocHost<Color>(extents);
-        initColors(colors);
+        if(writePngs)
+            initColors(colors);
+#else
+        if(writePngs)
+            std::cout << "WritePngs is enabled, but the pngwriter library was not found. Not writing pngs to disk."
+                      << std::endl;
 #endif
 
         std::cout << "Done initializing data on host" << std::endl;
@@ -179,7 +194,7 @@ namespace alpaka::example::nBody
                 particleData.zVelocities);
 
 #ifdef PNGWRITER_ENABLED
-            if(step % pngStepSize == 0)
+            if(step % pngStepSize == 0 && writePngs)
             {
                 wait(computeQueue);
 
@@ -221,6 +236,9 @@ namespace alpaka::example::nBody
         std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: "
                   << defaultTimeSteps << std::endl;
         std::cerr << "  -d dt: Delta t for the timesteps. Default: " << defaultTimeSteps << std::endl;
+        std::cerr
+            << "  -p: Write pngs of the particles to disk. Has no effect when pngwriter is not installed. Default: off"
+            << std::endl;
         std::cerr << "  -h: Print this help message" << std::endl;
         std::cerr << std::endl;
     }
@@ -236,10 +254,11 @@ auto main(int argc, char* argv[]) -> int
     IdxType numParticles = defaultNumParticles;
     IdxType numTimeSteps = defaultTimeSteps;
     BaseType dt = defaultDt;
+    bool writePngs = false;
 
     int opt;
 
-    while((opt = getopt(argc, argv, "hn:t:d:")) != -1)
+    while((opt = getopt(argc, argv, "hn:t:d:p")) != -1)
     {
         switch(opt)
         {
@@ -291,6 +310,9 @@ auto main(int argc, char* argv[]) -> int
                 return EXIT_FAILURE;
             }
             break;
+        case 'p':
+            writePngs = true;
+            break;
         case 'h':
             help(argv);
             exit(EXIT_SUCCESS);
@@ -300,7 +322,7 @@ auto main(int argc, char* argv[]) -> int
         }
     }
 
-    printExampleHeader(numParticles, numTimeSteps, dt);
+    printExampleHeader(writePngs, numParticles, numTimeSteps, dt);
 
     return onHost::executeForEachIfHasDevice(
         [=](auto const& backend)
@@ -308,6 +330,7 @@ auto main(int argc, char* argv[]) -> int
             return alpaka::example::nBody::example(
                 backend[object::deviceSpec],
                 backend[object::exec],
+                writePngs,
                 numParticles,
                 numTimeSteps,
                 dt);
