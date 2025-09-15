@@ -150,7 +150,7 @@ namespace alpaka::example::nBody
 
         // Make an instance of the kernel object to use later
         UpdateVelocitiesKernel updateVelocitiesKernel;
-        UpdatePositionsKernel updatePositionsKernel;
+        UpdatePositions updatePositionsKernel{dt};
 
         auto const startTime = std::chrono::high_resolution_clock::now();
 
@@ -165,8 +165,18 @@ namespace alpaka::example::nBody
                 frameSpec,
                 KernelBundle{updateVelocitiesKernel, particleData, chunkSize, dt});
 
-            computeQueue.enqueue(computeExec, frameSpec, KernelBundle{updatePositionsKernel, particleData, dt});
-
+            // execute velocity updates using simd concurrency
+            onHost::concurrent<BaseType>(
+                computeQueue,
+                computeExec,
+                particleData.xPositions.getExtents(),
+                updatePositionsKernel,
+                particleData.xPositions,
+                particleData.yPositions,
+                particleData.zPositions,
+                particleData.xVelocities,
+                particleData.yVelocities,
+                particleData.zVelocities);
 
 #ifdef PNGWRITER_ENABLED
             if(step % pngStepSize == 0)

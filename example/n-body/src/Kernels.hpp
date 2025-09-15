@@ -118,52 +118,25 @@ namespace alpaka::example::nBody
         }
     };
 
-    /** @brief The kernel computing each particle's updated position by moving it.
-     *
-     * @param acc The accelerator the kernel runs on, automatically passed by alpaka.
-     * @param particleData The ParticleData of the current state of particles.
-     * @param chunkSize The chunk size for the calculation (1D). Will also be used as shared memory size, so it has
-     * to be a CVector (known at compile time).
-     * @param dt The delta t time step to compute.
-     */
-    struct UpdatePositionsKernel
+    struct UpdatePositions
     {
-        template<typename T_Acc, typename T_View>
-        ALPAKA_FN_ACC auto operator()(T_Acc const& acc, ParticleData<T_View> particleData, BaseType const dt) const
-            -> void
-        {
-            auto simdGrid = onAcc::SimdAlgo{onAcc::worker::threadsInGrid};
+        BaseType const dt;
 
-            simdGrid.concurrent(
-                acc,
-                particleData.getExtents(),
-                [&](auto const&,
-                    auto&& simdX,
-                    auto&& simdY,
-                    auto&& simdZ,
-                    auto const&& simdXVel,
-                    auto const&& simdYVel,
-                    auto const&& simdZVel) constexpr
-                {
-                    auto x = simdX.load();
-                    auto xV = simdXVel.load();
-                    x += xV * dt;
-                    simdX = x;
-                    auto y = simdY.load();
-                    auto yV = simdYVel.load();
-                    y += yV * dt;
-                    simdY = y;
-                    auto z = simdZ.load();
-                    auto zV = simdZVel.load();
-                    z += zV * dt;
-                    simdZ = z;
-                },
-                particleData.xPositions,
-                particleData.yPositions,
-                particleData.zPositions,
-                particleData.xVelocities,
-                particleData.yVelocities,
-                particleData.zVelocities);
+        constexpr void operator()(
+            concepts::SimdPtr auto xPos,
+            concepts::SimdPtr auto yPos,
+            concepts::SimdPtr auto zPos,
+            concepts::SimdPtr auto xVel,
+            concepts::SimdPtr auto yVel,
+            concepts::SimdPtr auto zVel) const
+        {
+            Simd x = xPos.load();
+            xPos = x + xVel.load() * dt;
+            Simd y = yPos.load();
+            yPos = y + yVel.load() * dt;
+            Simd z = zPos.load();
+            zPos = z + zVel.load() * dt;
         }
     };
+
 } // namespace alpaka::example::nBody
