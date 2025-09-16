@@ -34,31 +34,33 @@ namespace alpaka::example::nBody
             auto const py = (p.yPos - minParticlePos) / (maxParticlePos - minParticlePos) * screenHeight;
 
             // Scale dot size with the mass
-            auto size = sqrtf(p.mass / 1e6f);
+            BaseType size = std::sqrt(p.mass / 1e6_bt);
 
-            // the camera is set at z = 2*MIN_PARTICLE_POS
-            auto zDistance = p.yPos - (2 * minParticlePos);
+            // the camera is set at z = 2*minParticlePos
+            auto const zDistance = p.yPos - (2 * minParticlePos);
             if(zDistance < zClipNear) // skip particles that are too close to the camera
                 continue;
 
             // scale dot size inversely with distance to camera
             BaseType const scaledDistance = zDistance / (maxParticlePos - minParticlePos);
-            BaseType const factor = 1.f / scaledDistance;
+            BaseType const factor = 1._bt / scaledDistance;
             size *= factor;
 
-            int const size_ceil = ceill(size);
+            int const sizeCeil = static_cast<int>(std::ceil(size));
 
             auto const& c = colors[idx];
-            // Draw a dot
-            for(int dx = -size_ceil; dx <= size_ceil; ++dx)
+
+            // Draw a particle
+            // this ignores depth of the particles, last rendered will be shown on top
+            for(int dx = -sizeCeil; dx <= sizeCeil; ++dx)
             {
-                for(int dy = -size_ceil; dy <= size_ceil; ++dy)
+                for(int dy = -sizeCeil; dy <= sizeCeil; ++dy)
                 {
-                    int const x = roundl(px + dx);
-                    int const y = roundl(py + dy);
+                    int const x = static_cast<int>(std::round(px + dx));
+                    int const y = static_cast<int>(std::round(py + dy));
                     if(x > 0 && x <= screenWidth && y > 0 && y <= screenHeight && sqrt(dx * dx + dy * dy) <= size)
                     {
-                        image.plot(x, y, c.r, c.g, c.b);
+                        image.plot(x, y, c.r(), c.g(), c.b());
                     }
                 }
             }

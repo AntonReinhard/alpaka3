@@ -17,6 +17,9 @@ namespace alpaka::example::nBody
      * @param chunkSize The chunk size for the calculation (1D). Will also be used as shared memory size, so it has to
      * be a CVector (known at compile time).
      * @param dt The delta t time step to compute.
+     *
+     * @note No boundary checks are performed in this kernel, the extents are assumed to be a multiple of the chunk
+     * size.
      */
     struct UpdateVelocitiesKernel
     {
@@ -38,14 +41,15 @@ namespace alpaka::example::nBody
                     IdxRange{CVec<IdxType, 0_idx>{}, extents, chunkSize}))
             {
                 // each block updates its particles with all other particles (3-dimensional positions)
-                auto sharedParticles = onAcc::declareSharedMdArray<Simd<BaseType, 3u>, uniqueId()>(acc, chunkSize);
+                auto particlePositions = onAcc::declareSharedMdArray<Simd<BaseType, 3u>, uniqueId()>(acc, chunkSize);
 
                 // the accelerations for the particles (3-dimensional)
-                auto accel = onAcc::declareSharedMdArray<Simd<BaseType, 3u>, uniqueId()>(acc, chunkSize);
+                auto accelerations = onAcc::declareSharedMdArray<Simd<BaseType, 3u>, uniqueId()>(acc, chunkSize);
 
                 // the data of the other particles for each tile. will be overridden in the inner loop (3-dimensional
                 // positions + mass)
-                auto otherParticles = onAcc::declareSharedMdArray<Simd<BaseType, 3u>, uniqueId()>(acc, chunkSize);
+                auto otherParticlePositions
+                    = onAcc::declareSharedMdArray<Simd<BaseType, 3u>, uniqueId()>(acc, chunkSize);
                 auto masses = onAcc::declareSharedMdArray<BaseType, uniqueId()>(acc, chunkSize);
 
                 // == load the particles for this block into shared memory and initialize accelerations ==
@@ -53,14 +57,11 @@ namespace alpaka::example::nBody
                     onAcc::makeIdxMap(acc, onAcc::worker::threadsInBlock, IdxRange{chunkSize}))
                 {
                     auto const globalIdx = blockStartIdx + particleIdx;
-                    if(globalIdx > extents)
-                        break;
-                    sharedParticles[particleIdx].x() = particleData.xPositions[globalIdx];
-                    sharedParticles[particleIdx].y() = particleData.yPositions[globalIdx];
-                    sharedParticles[particleIdx].z() = particleData.zPositions[globalIdx];
-                    accel[particleIdx].x() = static_cast<BaseType>(0.);
-                    accel[particleIdx].y() = static_cast<BaseType>(0.);
-                    accel[particleIdx].z() = static_cast<BaseType>(0.);
+                    particlePositions[particleIdx] = Simd{
+                        particleData.xPositions[globalIdx],
+                        particleData.yPositions[globalIdx],
+                        particleData.zPositions[globalIdx]};
+                    accelerations[particleIdx] = Simd{0._bt, 0._bt, 0._bt};
                 }
 
                 // == loop through all other particles in chunks ==
@@ -72,9 +73,10 @@ namespace alpaka::example::nBody
                         onAcc::makeIdxMap(acc, onAcc::worker::threadsInBlock, IdxRange{chunkSize}))
                     {
                         auto const otherGlobalIdx = otherBlockStartIdx + particleIdx;
-                        otherParticles[particleIdx].x() = particleData.xPositions[otherGlobalIdx];
-                        otherParticles[particleIdx].y() = particleData.yPositions[otherGlobalIdx];
-                        otherParticles[particleIdx].z() = particleData.zPositions[otherGlobalIdx];
+                        otherParticlePositions[particleIdx] = Simd{
+                            particleData.xPositions[otherGlobalIdx],
+                            particleData.yPositions[otherGlobalIdx],
+                            particleData.zPositions[otherGlobalIdx]};
                         masses[particleIdx] = particleData.masses[otherGlobalIdx];
                     }
 
@@ -86,14 +88,14 @@ namespace alpaka::example::nBody
                     {
                         for(IdxType i = 0_idx; i < chunkSize; ++i)
                         {
-                            Simd<BaseType, 3u> const r = otherParticles[i] - sharedParticles[particleIdx];
+                            auto const distanceVector = otherParticlePositions[i] - particlePositions[particleIdx];
 
-                            BaseType const distSqr = r.x() * r.x() + r.y() * r.y() + r.z() * r.z() + EPS;
-                            BaseType const distSixth = distSqr * distSqr * distSqr;
-                            BaseType const invDistCube = 1.0f / math::sqrt(distSixth);
-                            BaseType const a = masses[i] * invDistCube; // acceleration
+                            auto const distSqr = (distanceVector * distanceVector).sum() + EPS;
+                            auto const distSixth = distSqr * distSqr * distSqr;
+                            auto const invDistCube = 1.0_bt / math::sqrt(distSixth);
+                            auto const acceleration = masses[i] * invDistCube;
 
-                            accel[particleIdx] += a * r;
+                            accelerations[particleIdx] += acceleration * distanceVector;
                         }
                     }
 
@@ -106,9 +108,10 @@ namespace alpaka::example::nBody
                 for(concepts::Dim<1_idx> auto particleIdx :
                     onAcc::makeIdxMap(acc, onAcc::worker::threadsInBlock, IdxRange{chunkSize}))
                 {
-                    particleData.xVelocities[blockStartIdx + particleIdx] += accel[particleIdx].x() * dt;
-                    particleData.yVelocities[blockStartIdx + particleIdx] += accel[particleIdx].y() * dt;
-                    particleData.zVelocities[blockStartIdx + particleIdx] += accel[particleIdx].z() * dt;
+                    auto const acceleration = accelerations[particleIdx] * dt;
+                    particleData.xVelocities[blockStartIdx + particleIdx] += acceleration.x();
+                    particleData.yVelocities[blockStartIdx + particleIdx] += acceleration.y();
+                    particleData.zVelocities[blockStartIdx + particleIdx] += acceleration.z();
                 }
             }
         }
@@ -126,12 +129,9 @@ namespace alpaka::example::nBody
             concepts::SimdPtr auto yVel,
             concepts::SimdPtr auto zVel) const
         {
-            Simd x = xPos.load();
-            xPos = x + xVel.load() * dt;
-            Simd y = yPos.load();
-            yPos = y + yVel.load() * dt;
-            Simd z = zPos.load();
-            zPos = z + zVel.load() * dt;
+            xPos = xPos.load() + xVel.load() * dt;
+            yPos = yPos.load() + yVel.load() * dt;
+            zPos = zPos.load() + zVel.load() * dt;
         }
     };
 

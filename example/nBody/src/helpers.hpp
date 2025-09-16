@@ -19,10 +19,10 @@ namespace alpaka::example::nBody
     void initMasses(T_View& masses)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(massMin, massMax);
-        for(auto i = 0u; i < masses.getExtents().x(); ++i)
+        std::uniform_real_distribution distribution(massMin, massMax);
+        for(auto i = 0_idx; i < masses.getExtents().x(); ++i)
         {
-            masses[i] = dist(rd);
+            masses[i] = distribution(rd);
         }
     }
 
@@ -34,44 +34,35 @@ namespace alpaka::example::nBody
     {
         // most numbers should fall within the square that is plotted
         auto rd = std::random_device{};
-        std::normal_distribution<BaseType> dist(
-            (maxParticlePos + minParticlePos) / 2.f,
-            (maxParticlePos - minParticlePos) / 4.f);
+        std::normal_distribution distribution(
+            (maxParticlePos + minParticlePos) / 2._bt,
+            (maxParticlePos - minParticlePos) / 4._bt);
 
-        for(auto i = 0u; i < xPositions.getExtents().x(); ++i)
+        for(auto i = 0_idx; i < xPositions.getExtents().x(); ++i)
         {
-            xPositions[i] = dist(rd);
-            yPositions[i] = dist(rd);
-            zPositions[i] = dist(rd);
+            xPositions[i] = distribution(rd);
+            yPositions[i] = distribution(rd);
+            zPositions[i] = distribution(rd);
         }
     }
 
     /** @brief Helper function to generate a tangential velocity to prevent the whole set of particles moving in a
      * random direction.
      */
-    Vec<BaseType, 3> randomTangentialVelocity(
-        auto& rd,
-        auto& dist,
-        BaseType const x,
-        BaseType const y,
-        BaseType const z)
+    auto randomTangentialVelocity(auto& rd, auto& distribution, BaseType const x, BaseType const y, BaseType const z)
     {
         // Random vector
-        BaseType const ax = dist(rd), ay = dist(rd), az = dist(rd);
+        auto const a = Simd{distribution(rd), distribution(rd), distribution(rd)};
 
         // Position vector
-        BaseType const rx = x, ry = y, rz = z;
-        BaseType const r_norm_sq = rx * rx + ry * ry + rz * rz;
+        auto const distance = Simd{x, y, z};
+        auto const distanceNormSquare = (distance * distance).sum();
 
         // Dot product of random vector and position vector
-        BaseType const dot = ax * rx + ay * ry + az * rz;
+        auto const dot = (a * distance).sum();
 
         // Project random vector onto the tangential plane
-        BaseType vx = ax - dot * rx / r_norm_sq;
-        BaseType vy = ay - dot * ry / r_norm_sq;
-        BaseType vz = az - dot * rz / r_norm_sq;
-
-        return Vec{vz, vy, vx};
+        return a - dot * distance / distanceNormSquare;
     }
 
     /** @brief Initialize the given x, y, and z-velocities with random values, given the positions. The positions are
@@ -88,12 +79,12 @@ namespace alpaka::example::nBody
         T_View const& zPositions)
     {
         auto rd = std::random_device{};
-        std::normal_distribution<BaseType> dist(velocitiesMean, velocitiesStdDev);
+        std::normal_distribution distribution(velocitiesMean, velocitiesStdDev);
 
-        for(auto i = 0u; i < xVelocities.getExtents().x(); ++i)
+        for(auto i = 0_idx; i < xVelocities.getExtents().x(); ++i)
         {
             auto const tangentialVelocity
-                = randomTangentialVelocity(rd, dist, xPositions[i], yPositions[i], zPositions[i]);
+                = randomTangentialVelocity(rd, distribution, xPositions[i], yPositions[i], zPositions[i]);
             xVelocities[i] = tangentialVelocity.x();
             yVelocities[i] = tangentialVelocity.y();
             zVelocities[i] = tangentialVelocity.z();
@@ -101,24 +92,19 @@ namespace alpaka::example::nBody
     }
 
 #ifdef PNGWRITER_ENABLED
-    struct Color
-    {
-        BaseType r;
-        BaseType g;
-        BaseType b;
-    };
+    using Color = Simd<BaseType, 3>;
 
     template<concepts::MdSpan<Color> T_View>
     void initColors(T_View& colors)
     {
         auto rd = std::random_device{};
-        std::uniform_real_distribution<BaseType> dist(colorMin, colorMax);
+        std::uniform_real_distribution distribution(colorMin, colorMax);
 
-        for(auto i = 0u; i < colors.getExtents().x(); ++i)
+        for(auto i = 0_idx; i < colors.getExtents().x(); ++i)
         {
-            colors[i].r = dist(rd);
-            colors[i].g = dist(rd);
-            colors[i].b = dist(rd);
+            colors[i].r() = distribution(rd);
+            colors[i].g() = distribution(rd);
+            colors[i].b() = distribution(rd);
         }
     }
 #endif

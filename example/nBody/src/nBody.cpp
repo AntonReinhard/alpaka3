@@ -25,6 +25,9 @@
 
 namespace alpaka::example::nBody
 {
+    // Appropriate chunk size to split your problem for your Acc
+    constexpr auto chunkSize = CVec<IdxType, 256_idx>{};
+
     void printExampleHeader(
         bool const writePngs,
         IdxType const numParticles,
@@ -155,9 +158,6 @@ namespace alpaka::example::nBody
             yVelocitiesDev.getView(),
             zVelocitiesDev.getView()};
 
-        // Appropriate chunk size to split your problem for your Acc
-        constexpr auto chunkSize = CVec<IdxType, 256_idx>{};
-
         auto const numChunks = divCeil(Vec{extents.x()}, chunkSize);
 
         // The frame spec describes the size of blocks and the grid used on the accelerator.
@@ -235,7 +235,7 @@ namespace alpaka::example::nBody
         std::cerr << "  -n numParticles: Number of particles. Default: " << defaultNumParticles << std::endl;
         std::cerr << "  -t numTimeSteps: Number of time steps that the simulation is run for. Default: "
                   << defaultTimeSteps << std::endl;
-        std::cerr << "  -d dt: Delta t for the timesteps. Default: " << defaultTimeSteps << std::endl;
+        std::cerr << "  -d dt: Delta t for the timesteps. Default: " << defaultDt << std::endl;
         std::cerr
             << "  -p: Write pngs of the particles to disk. Has no effect when pngwriter is not installed. Default: off"
             << std::endl;
@@ -266,6 +266,19 @@ auto main(int argc, char* argv[]) -> int
             try
             {
                 numParticles = static_cast<IdxType>(std::stoull(optarg, nullptr, 0));
+
+                auto adjustedParticles = divCeil(numParticles, chunkSize.x()) * chunkSize.x();
+                if(adjustedParticles != numParticles)
+                {
+                    std::cout << "Adjusting number of particles to " << adjustedParticles
+                              << " to be a multiple of the chunk size (" << chunkSize.x() << ")" << std::endl;
+                    numParticles = adjustedParticles;
+                }
+
+                if(numParticles < 1)
+                {
+                    throw std::invalid_argument("Number of particles must be at least 1");
+                }
             }
             catch(std::invalid_argument const& e)
             {
