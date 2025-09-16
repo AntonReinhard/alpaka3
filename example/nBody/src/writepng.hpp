@@ -34,7 +34,7 @@ namespace alpaka::example::nBody
             auto const py = (p.yPos - minParticlePos) / (maxParticlePos - minParticlePos) * screenHeight;
 
             // Scale dot size with the mass
-            BaseType size = std::sqrt(p.mass / 1e6_bt);
+            BaseType size = std::sqrt(p.mass / BaseType{1e6});
 
             // the camera is set at z = 2*minParticlePos
             auto const zDistance = p.yPos - (2 * minParticlePos);
@@ -43,7 +43,7 @@ namespace alpaka::example::nBody
 
             // scale dot size inversely with distance to camera
             BaseType const scaledDistance = zDistance / (maxParticlePos - minParticlePos);
-            BaseType const factor = 1._bt / scaledDistance;
+            BaseType const factor = BaseType{1.} / scaledDistance;
             size *= factor;
 
             int const sizeCeil = static_cast<int>(std::ceil(size));

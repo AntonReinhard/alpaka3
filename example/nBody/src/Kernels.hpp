@@ -61,7 +61,7 @@ namespace alpaka::example::nBody
                         particleData.xPositions[globalIdx],
                         particleData.yPositions[globalIdx],
                         particleData.zPositions[globalIdx]};
-                    accelerations[particleIdx] = Simd{0._bt, 0._bt, 0._bt};
+                    accelerations[particleIdx] = Simd{BaseType{0.}, BaseType{0.}, BaseType{0.}};
                 }
 
                 // == loop through all other particles in chunks ==
@@ -92,7 +92,7 @@ namespace alpaka::example::nBody
 
                             auto const distSqr = (distanceVector * distanceVector).sum() + EPS;
                             auto const distSixth = distSqr * distSqr * distSqr;
-                            auto const invDistCube = 1.0_bt / math::sqrt(distSixth);
+                            auto const invDistCube = BaseType{1.0} / math::sqrt(distSixth);
                             auto const acceleration = masses[i] * invDistCube;
 
                             accelerations[particleIdx] += acceleration * distanceVector;

@@ -35,8 +35,8 @@ namespace alpaka::example::nBody
         // most numbers should fall within the square that is plotted
         auto rd = std::random_device{};
         std::normal_distribution distribution(
-            (maxParticlePos + minParticlePos) / 2._bt,
-            (maxParticlePos - minParticlePos) / 4._bt);
+            (maxParticlePos + minParticlePos) / BaseType{2.},
+            (maxParticlePos - minParticlePos) / BaseType{4.});
 
         for(auto i = 0_idx; i < xPositions.getExtents().x(); ++i)
         {
