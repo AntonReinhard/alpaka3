@@ -225,6 +225,8 @@ namespace alpaka::example::nBody
 
         std::cout << "The simulation took " << elapsedTime.count() << " seconds." << std::endl;
         std::cout << "Time per time step: " << elapsedTime.count() / numTimeSteps * 1000 << " ms." << std::endl;
+        std::cout << "Average achieved GFLOPS: "
+                  << flopsRequiredPerTimeStep(numParticles) * numTimeSteps / elapsedTime.count() / 1e9_bt << std::endl;
 
         return EXIT_SUCCESS;
     }

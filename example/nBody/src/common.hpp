@@ -23,6 +23,15 @@ namespace alpaka::example::nBody
         return static_cast<BaseType>(v);
     }
 
+    constexpr auto flopsRequiredPerTimeStep(IdxType const numElements)
+    {
+        return
+            // 20 flops per particle-particle acceleration calculation
+            20 * numElements * numElements +
+            // 6 flops for position and velocity update per element
+            6 * numElements;
+    }
+
     // default values for a run
     constexpr IdxType defaultTimeSteps = 1000;
     constexpr IdxType defaultNumParticles = 512;
