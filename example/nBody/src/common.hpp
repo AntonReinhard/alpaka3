@@ -20,11 +20,13 @@ namespace alpaka::example::nBody
 
     constexpr auto flopsRequiredPerTimeStep(IdxType const numElements)
     {
+        // need to prevent overflow
+        auto n = static_cast<std::size_t>(numElements);
         return
             // 20 flops per particle-particle acceleration calculation
-            20 * numElements * numElements +
+            20 * n * n +
             // 6 flops for position and velocity update per element
-            6 * numElements;
+            6 * n;
     }
 
     // default values for a run

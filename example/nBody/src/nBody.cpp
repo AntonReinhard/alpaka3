@@ -223,10 +223,12 @@ namespace alpaka::example::nBody
         auto const endTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsedTime = endTime - startTime;
 
+        auto timePerStep = elapsedTime.count() / numTimeSteps;
         std::cout << "The simulation took " << elapsedTime.count() << " seconds." << std::endl;
-        std::cout << "Time per time step: " << elapsedTime.count() / numTimeSteps * 1000 << " ms." << std::endl;
-        std::cout << "Average achieved GFLOPS: "
-                  << flopsRequiredPerTimeStep(numParticles) * numTimeSteps / elapsedTime.count() / 1e9 << std::endl;
+        std::cout << "Time per time step: " << timePerStep * 1000 << " ms." << std::endl;
+        std::cout << "GFLOP needed per time step: " << flopsRequiredPerTimeStep(numParticles) << std::endl;
+        std::cout << "Average achieved GFLOPS: " << flopsRequiredPerTimeStep(numParticles) / timePerStep / 1e9
+                  << std::endl;
 
         return EXIT_SUCCESS;
     }
