@@ -67,4 +67,8 @@ namespace alpaka::example::nBody
     constexpr BaseType velocitiesMean = 0.;
     constexpr BaseType velocitiesStdDev = 700.;
 
+    // benchmarkMode presets
+    constexpr auto numParticlesBenchmark = std::array{512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072};
+    constexpr auto timeStepsBenchmark = 50;
+
 } // namespace alpaka::example::nBody

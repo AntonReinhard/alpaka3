@@ -30,21 +30,31 @@ namespace alpaka::example::nBody
 
     void printExampleHeader(
         bool const writePngs,
+        bool const benchmarkMode,
         IdxType const numParticles,
         IdxType const numTimeSteps,
         BaseType const dt)
     {
-        std::cout << "================================" << std::endl;
-        std::cout << "Example n-Body simulation" << std::endl;
-        std::cout << "    Number of particles [#]: " << numParticles << std::endl;
-        std::cout << "    Time steps [#]: " << numTimeSteps << std::endl;
-        std::cout << "    dt: " << dt << std::endl;
-        if(writePngs)
-            std::cout << "    Writing pngs to disk" << std::endl;
+        if(!benchmarkMode)
+        {
+            std::cout << "================================" << std::endl;
+            std::cout << "Example n-Body simulation" << std::endl;
+            std::cout << "    Number of particles [#]: " << numParticles << std::endl;
+            std::cout << "    Time steps [#]: " << numTimeSteps << std::endl;
+            std::cout << "    dt: " << dt << std::endl;
+            if(writePngs)
+                std::cout << "    Writing pngs to disk" << std::endl;
+            else
+                std::cout << "    Not writing pngs to disk" << std::endl;
+            std::cout << "================================" << std::endl;
+            std::cout << std::endl;
+        }
         else
-            std::cout << "    Not writing pngs to disk" << std::endl;
-        std::cout << "================================" << std::endl;
-        std::cout << std::endl;
+        {
+            // print csv header
+            std::cout << "# N-Body simulation, " << timeStepsBenchmark << " timesteps per run" << std::endl;
+            std::cout << "accelerator,numParticles,timePerStep(s),GFLOPs" << std::endl;
+        }
     }
 
     /** @brief Run an n-body simulation.
@@ -59,6 +69,7 @@ namespace alpaka::example::nBody
      * @param deviceSpec The device specification to run on.
      * @param computeExec The device to execute on.
      * @param writePngs Whether to write pngs to disk or not.
+     * @param benchmarkMode Whether to run in benchmark mode. See the help docs below.
      * @param numParticles The number of particles to simulate.
      * @param numTimeSteps The number of time steps to run for.
      * @param dt The delta t to use as time steps.
@@ -67,6 +78,7 @@ namespace alpaka::example::nBody
         auto const deviceSpec,
         auto const computeExec,
         bool const writePngs,
+        bool const benchmarkMode,
         IdxType const numParticles,
         IdxType const numTimeSteps,
         BaseType const dt)
@@ -76,7 +88,8 @@ namespace alpaka::example::nBody
 
         using IdxTypeVec = Vec<IdxType, 1_idx>;
 
-        std::cout << "\nRunning accelerator: " << deviceSpec.getApi().getName() << std::endl;
+        if(!benchmarkMode)
+            std::cout << "\nRunning accelerator: " << deviceSpec.getApi().getName() << std::endl;
 
         auto devSelector = makeDeviceSelector(deviceSpec);
         Device devAcc = devSelector.makeDevice(0);
@@ -103,7 +116,8 @@ namespace alpaka::example::nBody
             zVelocitiesHost.getView(),
         };
 
-        std::cout << "Initializing data on host" << std::endl;
+        if(!benchmarkMode)
+            std::cout << "Initializing data on host" << std::endl;
         initMasses(massesHost);
         initPositions(xPositionsHost, yPositionsHost, zPositionsHost);
         initVelocities(
@@ -124,7 +138,8 @@ namespace alpaka::example::nBody
                       << std::endl;
 #endif
 
-        std::cout << "Done initializing data on host" << std::endl;
+        if(!benchmarkMode)
+            std::cout << "Done initializing data on host" << std::endl;
 
         auto massesDev = onHost::allocLike(devAcc, massesHost);
         auto xPositionsDev = onHost::allocLike(devAcc, xPositionsHost);
@@ -147,7 +162,8 @@ namespace alpaka::example::nBody
         onHost::memcpy(dumpQueue, yVelocitiesDev, yVelocitiesHost);
         onHost::memcpy(dumpQueue, zVelocitiesDev, zVelocitiesHost);
         onHost::wait(dumpQueue);
-        std::cout << "Data copied to device" << std::endl;
+        if(!benchmarkMode)
+            std::cout << "Data copied to device" << std::endl;
 
         auto particleData = ParticleData{
             massesDev.getView(),
@@ -224,12 +240,29 @@ namespace alpaka::example::nBody
         std::chrono::duration<double> elapsedTime = endTime - startTime;
 
         auto timePerStep = elapsedTime.count() / numTimeSteps;
-        std::cout << "The simulation took " << elapsedTime.count() << " seconds." << std::endl;
-        std::cout << "Time per time step: " << timePerStep * 1000 << " ms." << std::endl;
-        std::cout << "GFLOP needed per time step: " << flopsRequiredPerTimeStep(numParticles) << std::endl;
-        std::cout << "Average achieved GFLOPS: " << flopsRequiredPerTimeStep(numParticles) / timePerStep / 1e9
-                  << std::endl;
+        if(!benchmarkMode)
+        {
+            std::cout << "The simulation took " << elapsedTime.count() << " seconds." << std::endl;
+            std::cout << "Time per time step: " << timePerStep * 1000 << " ms." << std::endl;
+            std::cout << "GFLOP needed per time step: " << flopsRequiredPerTimeStep(numParticles) << std::endl;
+            std::cout << "Average achieved GFLOPS: " << flopsRequiredPerTimeStep(numParticles) / timePerStep / 1e9
+                      << std::endl;
+        }
+        else
+        {
+            std::cout << deviceSpec.getApi().getName() << "," << numParticles << "," << timePerStep << ","
+                      << flopsRequiredPerTimeStep(numParticles) / timePerStep / 1e9 << std::endl;
+        }
 
+        return EXIT_SUCCESS;
+    }
+
+    int benchmark(auto const deviceSpec, auto const computeExec, BaseType const dt)
+    {
+        for(auto numParticles : numParticlesBenchmark)
+        {
+            example(deviceSpec, computeExec, false, true, numParticles, timeStepsBenchmark, dt);
+        }
         return EXIT_SUCCESS;
     }
 
@@ -243,6 +276,9 @@ namespace alpaka::example::nBody
         std::cerr
             << "  -p: Write pngs of the particles to disk. Has no effect when pngwriter is not installed. Default: off"
             << std::endl;
+        std::cerr << "  -b: Benchmark mode. In this mode, csv formatted results are printed to stdout and multiple "
+                     "predefined problem sizes are run. Other options are ignored in this mode. Default: off"
+                  << std::endl;
         std::cerr << "  -h: Print this help message" << std::endl;
         std::cerr << std::endl;
     }
@@ -259,10 +295,11 @@ auto main(int argc, char* argv[]) -> int
     IdxType numTimeSteps = defaultTimeSteps;
     BaseType dt = defaultDt;
     bool writePngs = false;
+    bool benchmarkMode = false;
 
     int opt;
 
-    while((opt = getopt(argc, argv, "hn:t:d:p")) != -1)
+    while((opt = getopt(argc, argv, "hn:t:d:pb")) != -1)
     {
         switch(opt)
         {
@@ -330,6 +367,9 @@ auto main(int argc, char* argv[]) -> int
         case 'p':
             writePngs = true;
             break;
+        case 'b':
+            benchmarkMode = true;
+            break;
         case 'h':
             help(argv);
             exit(EXIT_SUCCESS);
@@ -339,18 +379,29 @@ auto main(int argc, char* argv[]) -> int
         }
     }
 
-    printExampleHeader(writePngs, numParticles, numTimeSteps, dt);
+    printExampleHeader(writePngs, benchmarkMode, numParticles, numTimeSteps, dt);
 
-    return onHost::executeForEachIfHasDevice(
-        [=](auto const& backend)
-        {
-            return alpaka::example::nBody::example(
-                backend[object::deviceSpec],
-                backend[object::exec],
-                writePngs,
-                numParticles,
-                numTimeSteps,
-                dt);
-        },
-        onHost::allBackends(onHost::enabledApis, onHost::example::enabledExecutors));
+    if(benchmarkMode)
+    {
+        return onHost::executeForEachIfHasDevice(
+            [=](auto const& backend)
+            { return alpaka::example::nBody::benchmark(backend[object::deviceSpec], backend[object::exec], dt); },
+            onHost::allBackends(onHost::enabledApis, onHost::example::enabledExecutors));
+    }
+    else
+    {
+        return onHost::executeForEachIfHasDevice(
+            [=](auto const& backend)
+            {
+                return alpaka::example::nBody::example(
+                    backend[object::deviceSpec],
+                    backend[object::exec],
+                    writePngs,
+                    benchmarkMode,
+                    numParticles,
+                    numTimeSteps,
+                    dt);
+            },
+            onHost::allBackends(onHost::enabledApis, onHost::example::enabledExecutors));
+    }
 }
