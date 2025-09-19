@@ -92,7 +92,7 @@ namespace alpaka::example::nBody
 
                             auto const distSqr = (distanceVector * distanceVector).sum() + EPS;
                             auto const distSixth = distSqr * distSqr * distSqr;
-                            auto const invDistCube = BaseType{1.0} / math::sqrt(distSixth);
+                            auto const invDistCube = BaseType{1.0} / math::rsqrt(distSixth);
                             auto const acceleration = masses[i] * invDistCube;
 
                             accelerations[particleIdx] += acceleration * distanceVector;

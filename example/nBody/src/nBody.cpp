@@ -106,7 +106,7 @@ namespace alpaka::example::nBody
         auto yVelocitiesHost = onHost::allocHost<BaseType>(extents);
         auto zVelocitiesHost = onHost::allocHost<BaseType>(extents);
 
-        auto particleDataHost = ParticleData{
+        [[maybe_unused]] auto particleDataHost = ParticleData{
             massesHost.getView(),
             xPositionsHost.getView(),
             yPositionsHost.getView(),
