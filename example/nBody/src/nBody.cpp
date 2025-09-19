@@ -27,6 +27,7 @@ namespace alpaka::example::nBody
 {
     // Appropriate chunk size to split your problem for your Acc
     constexpr auto chunkSize = CVec<IdxType, 256_idx>{};
+    constexpr IdxType particlePerThread = 1_idx;
 
     void printExampleHeader(
         bool const writePngs,
@@ -174,10 +175,13 @@ namespace alpaka::example::nBody
             yVelocitiesDev.getView(),
             zVelocitiesDev.getView()};
 
-        auto const numChunks = divCeil(Vec{extents.x()}, chunkSize);
+        auto const numChunks = divExZero(Vec{extents.x()}, chunkSize);
 
         // The frame spec describes the size of blocks and the grid used on the accelerator.
-        auto const frameSpec = FrameSpec{numChunks, chunkSize};
+        auto const frameSpec = FrameSpec{
+            numChunks,
+            chunkSize,
+            CVec<IdxType, std::max(1_idx, (chunkSize.x() + particlePerThread - 1_idx) / particlePerThread)>{}};
 
         // Make an instance of the kernel object to use later
         UpdateVelocitiesKernel updateVelocitiesKernel;
