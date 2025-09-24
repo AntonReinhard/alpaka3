@@ -34,6 +34,8 @@ namespace alpaka::example::nBody
 
             auto const extents = particleData.getExtents();
 
+            constexpr auto otherChunkSize = CVec<IdxType, 1024u>{};
+
             // loop through blocks in the grid
             for(concepts::Dim<1_idx> auto blockStartIdx : onAcc::makeIdxMap(
                     acc,
@@ -54,8 +56,8 @@ namespace alpaka::example::nBody
                 // the data of the other particles for each tile. will be overridden in the inner loop (3-dimensional
                 // positions + mass)
                 auto otherParticlePositions
-                    = onAcc::declareSharedMdArray<Vec<BaseType, 3u>, uniqueId()>(acc, chunkSize);
-                auto masses = onAcc::declareSharedMdArray<BaseType, uniqueId()>(acc, chunkSize);
+                    = onAcc::declareSharedMdArray<Vec<BaseType, 3u>, uniqueId()>(acc, otherChunkSize);
+                auto masses = onAcc::declareSharedMdArray<BaseType, uniqueId()>(acc, otherChunkSize);
 
                 // == load the particles for this block into shared memory and initialize accelerations ==
                 for(auto particleIdx = 0_idx; particleIdx < parPerThread; ++particleIdx)
@@ -70,11 +72,11 @@ namespace alpaka::example::nBody
 
                 // == loop through all other particles in chunks ==
                 for(auto otherBlockStartIdx = 0_idx; otherBlockStartIdx < extents.x();
-                    otherBlockStartIdx += chunkSize.x())
+                    otherBlockStartIdx += otherChunkSize.x())
                 {
                     // == load the particles for this block into shared memory and initialize accelerations ==
                     for(concepts::Dim<1_idx> auto particleIdx :
-                        onAcc::makeIdxMap(acc, onAcc::worker::threadsInBlock, IdxRange{chunkSize}))
+                        onAcc::makeIdxMap(acc, onAcc::worker::threadsInBlock, IdxRange{otherChunkSize}))
                     {
                         auto const otherGlobalIdx = otherBlockStartIdx + particleIdx;
                         otherParticlePositions[particleIdx] = Vec{
@@ -87,10 +89,9 @@ namespace alpaka::example::nBody
                     onAcc::syncBlockThreads(acc);
 
                     // == iterate through every x,y pair of particles in this tile ==
-
                     for(auto particleIdx = 0_idx; particleIdx < parPerThread; ++particleIdx)
                     {
-                        for(IdxType i = 0_idx; i < chunkSize; ++i)
+                        for(IdxType i = 0_idx; i < otherChunkSize; ++i)
                         {
                             auto const distanceVector = otherParticlePositions[i] - particlePosition[particleIdx];
 
