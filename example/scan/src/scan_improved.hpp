@@ -384,11 +384,14 @@ namespace alpaka::example::scan
 
             // always recurse into exclusive scan
             scan<EXCLUSIVE_SCAN>(exec, devAcc, queue, increments, blockSums);
+
+            // increments need to stay valid until here
+            increments.keepAlive(queue);
+
             queue.enqueue(exec, frameSpec, KernelBundle{addIncrements, blockSums, outputVec});
 
-            // need to wait here until the previous call is done before we can destruct the buffers for
-            // increments/blockSums when running out of scope
-            onHost::wait(queue);
+            // block sums need to stay valid until here
+            blockSums.keepAlive(queue);
         }
         else
         {

@@ -278,26 +278,38 @@ namespace alpaka::onHost
     } // namespace syclGeneric
 
     template<typename T_Device, typename T_Task>
-    struct internal::Enqueue::Task<syclGeneric::Queue<T_Device>, T_Task>
-
+    struct internal::Enqueue::HostTask<syclGeneric::Queue<T_Device>, T_Task>
     {
-        /** It is not allowed to execute sycl methods within a SYCL host_task therefore we use a callback host
-         * thread to execute the host function which is allowing to use sycl methods.
-         */
-        static void callHostTask(syclGeneric::Queue<T_Device>& queue, T_Task task)
-        {
-            auto f = queue.m_callBackThread.submit([t = std::move(task)] { t(); });
-            f.wait();
-        }
-
         void operator()(syclGeneric::Queue<T_Device>& queue, T_Task const& task) const
         {
             ALPAKA_LOG_FUNCTION(onHost::logger::queue);
             // using the queue by reference is fine here, because the queue is not destroyed while the task is
             // executed.
-            [[maybe_unused]] sycl::event ev
-                = queue.m_queue.submit([&queue, task](sycl::handler& cgh)
-                                       { cgh.host_task([&queue, task]() { callHostTask(queue, task); }); });
+            [[maybe_unused]] sycl::event ev = queue.m_queue.submit(
+                [&queue, task](sycl::handler& cgh)
+                {
+                    auto f = queue.m_callBackThread.submit([t = std::move(task)] { t(); });
+                    f.wait();
+                });
+            if(queue.isBlocking())
+                ev.wait_and_throw();
+        }
+    };
+
+    template<typename T_Device, typename T_Task>
+    struct internal::Enqueue::HostTaskDeferred<syclGeneric::Queue<T_Device>, T_Task>
+    {
+        // same as for Enqueue::HostTask, but not waiting for the task to finish
+        void operator()(syclGeneric::Queue<T_Device>& queue, T_Task const& task) const
+        {
+            ALPAKA_LOG_FUNCTION(onHost::logger::queue);
+            // using the queue by reference is fine here, because the queue is not destroyed while the task is
+            // executed.
+            [[maybe_unused]] sycl::event ev = queue.m_queue.submit(
+                [&queue, task](sycl::handler& cgh)
+                {
+                    cgh.host_task([&queue, task]() { queue.m_callBackThread.submit([t = std::move(task)] { t(); }); });
+                });
             if(queue.isBlocking())
                 ev.wait_and_throw();
         }
